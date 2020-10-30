@@ -25,8 +25,8 @@ github:
 # Command to start on workspace startup (optional)
 tasks:
   - before: >
-     gp env NG_CLI_ANALYTICS=off;
-  - init: gp env NG_CLI_ANALYTICS=off; npm install
+     export NG_CLI_ANALYTICS=off;
+  - init: npm install
   #- command: gp env NG_CLI_ANALYTICS=ci; npm install
 # Ports to expose on workspace startup (optional)
 ports:
