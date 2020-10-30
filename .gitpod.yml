@@ -26,7 +26,7 @@ github:
 tasks:
   - before: >
      export NG_CLI_ANALYTICS=false;
-  - init: npm install
+  - init: export NG_CLI_ANALYTICS=false; npm install
   #- command: gp env NG_CLI_ANALYTICS=ci; npm install
 # Ports to expose on workspace startup (optional)
 ports:
