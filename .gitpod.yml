@@ -31,4 +31,5 @@ tasks:
 # Ports to expose on workspace startup (optional)
 ports:
   - port: 3000
+    visibility: public
     #onOpen: open-preview
