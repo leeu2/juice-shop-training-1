@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020 Bjoern Kimminich.
+ * Copyright (c) 2014-2021 Bjoern Kimminich & the OWASP Juice Shop contributors.
  * SPDX-License-Identifier: MIT
  */
 
@@ -42,7 +42,6 @@ interface TableEntry {
   styleUrls: ['./search-result.component.scss']
 })
 export class SearchResultComponent implements OnDestroy, AfterViewInit {
-
   public displayedColumns = ['Image', 'Product', 'Description', 'Price', 'Select']
   public tableData!: any[]
   public pageSizeOptions: number[] = []
@@ -51,23 +50,24 @@ export class SearchResultComponent implements OnDestroy, AfterViewInit {
   public searchValue?: SafeHtml
   public resultsLength = 0
   @ViewChild(MatPaginator, { static: true }) paginator: MatPaginator | null = null
-  private productSubscription?: Subscription
+  private readonly productSubscription?: Subscription
   private routerSubscription?: Subscription
   public breakpoint: number = 6
   public emptyState = false
 
-  constructor (private deluxeGuard: DeluxeGuard, private dialog: MatDialog, private productService: ProductService,
-   private quantityService: QuantityService, private basketService: BasketService, private translateService: TranslateService,
-   private router: Router, private route: ActivatedRoute, private sanitizer: DomSanitizer, private ngZone: NgZone, private io: SocketIoService,
-   private snackBarHelperService: SnackBarHelperService, private cdRef: ChangeDetectorRef) { }
+  constructor (private readonly deluxeGuard: DeluxeGuard, private readonly dialog: MatDialog, private readonly productService: ProductService,
+    private readonly quantityService: QuantityService, private readonly basketService: BasketService, private readonly translateService: TranslateService,
+    private readonly router: Router, private readonly route: ActivatedRoute, private readonly sanitizer: DomSanitizer, private readonly ngZone: NgZone, private readonly io: SocketIoService,
+    private readonly snackBarHelperService: SnackBarHelperService, private readonly cdRef: ChangeDetectorRef) { }
 
+  // vuln-code-snippet start restfulXssChallenge
   ngAfterViewInit () {
     const products = this.productService.search('')
     const quantities = this.quantityService.getAll()
     forkJoin([quantities, products]).subscribe(([quantities, products]) => {
-      let dataTable: TableEntry[] = []
+      const dataTable: TableEntry[] = []
       this.tableData = products
-      this.trustProductDescription(products)
+      this.trustProductDescription(products) // vuln-code-snippet neutral-line restfulXssChallenge
       for (const product of products) {
         dataTable.push({
           name: product.name,
@@ -99,10 +99,10 @@ export class SearchResultComponent implements OnDestroy, AfterViewInit {
       this.routerSubscription = this.router.events.subscribe(() => {
         this.filterTable()
       })
-      let challenge: string = this.route.snapshot.queryParams.challenge
+      const challenge: string = this.route.snapshot.queryParams.challenge // vuln-code-snippet hide-start
       if (challenge && this.route.snapshot.url.join('').match(/hacking-instructor/)) {
         this.startHackingInstructor(decodeURIComponent(challenge))
-      }
+      } // vuln-code-snippet hide-end
       if (window.innerWidth < 2600) {
         this.breakpoint = 4
         if (window.innerWidth < 1740) {
@@ -121,6 +121,13 @@ export class SearchResultComponent implements OnDestroy, AfterViewInit {
     }, (err) => console.log(err))
   }
 
+  trustProductDescription (tableData: any[]) { // vuln-code-snippet neutral-line restfulXssChallenge
+    for (let i = 0; i < tableData.length; i++) { // vuln-code-snippet neutral-line restfulXssChallenge
+      tableData[i].description = this.sanitizer.bypassSecurityTrustHtml(tableData[i].description) // vuln-code-snippet vuln-line restfulXssChallenge
+    } // vuln-code-snippet neutral-line restfulXssChallenge
+  } // vuln-code-snippet neutral-line restfulXssChallenge
+  // vuln-code-snippet end restfulXssChallenge
+
   ngOnDestroy () {
     if (this.routerSubscription) {
       this.routerSubscription.unsubscribe()
@@ -133,15 +140,16 @@ export class SearchResultComponent implements OnDestroy, AfterViewInit {
     }
   }
 
+  // vuln-code-snippet start localXssChallenge xssBonusChallenge
   filterTable () {
     let queryParam: string = this.route.snapshot.queryParams.q
     if (queryParam) {
       queryParam = queryParam.trim()
-      this.ngZone.runOutsideAngular(() => {
+      this.ngZone.runOutsideAngular(() => { // vuln-code-snippet hide-start
         this.io.socket().emit('verifyLocalXssChallenge', queryParam)
-      })
+      }) // vuln-code-snippet hide-end
       this.dataSource.filter = queryParam.toLowerCase()
-      this.searchValue = this.sanitizer.bypassSecurityTrustHtml(queryParam)
+      this.searchValue = this.sanitizer.bypassSecurityTrustHtml(queryParam) // vuln-code-snippet vuln-line localXssChallenge xssBonusChallenge
       this.gridDataSource.subscribe((result: any) => {
         if (result.length === 0) {
           this.emptyState = true
@@ -155,8 +163,9 @@ export class SearchResultComponent implements OnDestroy, AfterViewInit {
       this.emptyState = false
     }
   }
+  // vuln-code-snippet end localXssChallenge xssBonusChallenge
 
-  startHackingInstructor (challengeName: String) {
+  startHackingInstructor (challengeName: string) {
     console.log(`Starting instructions for challenge "${challengeName}"`)
     import(/* webpackChunkName: "tutorial" */ '../../hacking-instructor').then(module => {
       module.startHackingInstructorFor(challengeName)
@@ -175,25 +184,26 @@ export class SearchResultComponent implements OnDestroy, AfterViewInit {
 
   addToBasket (id?: number) {
     this.basketService.find(Number(sessionStorage.getItem('bid'))).subscribe((basket) => {
-      let productsInBasket: any = basket.Products
+      const productsInBasket: any = basket.Products
       let found = false
       for (let i = 0; i < productsInBasket.length; i++) {
         if (productsInBasket[i].id === id) {
           found = true
           this.basketService.get(productsInBasket[i].BasketItem.id).subscribe((existingBasketItem) => {
-            let newQuantity = existingBasketItem.quantity + 1
+            // eslint-disable-next-line @typescript-eslint/restrict-plus-operands
+            const newQuantity = existingBasketItem.quantity + 1
             this.basketService.put(existingBasketItem.id, { quantity: newQuantity }).subscribe((updatedBasketItem) => {
               this.productService.get(updatedBasketItem.ProductId).subscribe((product) => {
                 this.translateService.get('BASKET_ADD_SAME_PRODUCT', { product: product.name }).subscribe((basketAddSameProduct) => {
-                  this.snackBarHelperService.open(basketAddSameProduct,'confirmBar')
-                  this.basketService.updateNumberOfCardItems()
+                  this.snackBarHelperService.open(basketAddSameProduct, 'confirmBar')
+                  this.basketService.updateNumberOfCartItems()
                 }, (translationId) => {
-                  this.snackBarHelperService.open(translationId,'confirmBar')
-                  this.basketService.updateNumberOfCardItems()
+                  this.snackBarHelperService.open(translationId, 'confirmBar')
+                  this.basketService.updateNumberOfCartItems()
                 })
               }, (err) => console.log(err))
-            },(err) => {
-              this.snackBarHelperService.open(err.error?.error,'errorBar')
+            }, (err) => {
+              this.snackBarHelperService.open(err.error?.error, 'errorBar')
               console.log(err)
             })
           }, (err) => console.log(err))
@@ -204,25 +214,19 @@ export class SearchResultComponent implements OnDestroy, AfterViewInit {
         this.basketService.save({ ProductId: id, BasketId: sessionStorage.getItem('bid'), quantity: 1 }).subscribe((newBasketItem) => {
           this.productService.get(newBasketItem.ProductId).subscribe((product) => {
             this.translateService.get('BASKET_ADD_PRODUCT', { product: product.name }).subscribe((basketAddProduct) => {
-              this.snackBarHelperService.open(basketAddProduct,'confirmBar')
-              this.basketService.updateNumberOfCardItems()
+              this.snackBarHelperService.open(basketAddProduct, 'confirmBar')
+              this.basketService.updateNumberOfCartItems()
             }, (translationId) => {
-              this.snackBarHelperService.open(translationId,'confirmBar')
-              this.basketService.updateNumberOfCardItems()
+              this.snackBarHelperService.open(translationId, 'confirmBar')
+              this.basketService.updateNumberOfCartItems()
             })
           }, (err) => console.log(err))
         }, (err) => {
-          this.snackBarHelperService.open(err.error?.error,'errorBar')
+          this.snackBarHelperService.open(err.error?.error, 'errorBar')
           console.log(err)
         })
       }
     }, (err) => console.log(err))
-  }
-
-  trustProductDescription (tableData: any[]) {
-    for (let i = 0; i < tableData.length; i++) {
-      tableData[i].description = this.sanitizer.bypassSecurityTrustHtml(tableData[i].description)
-    }
   }
 
   isLoggedIn () {

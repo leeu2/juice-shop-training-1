@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020 Bjoern Kimminich.
+ * Copyright (c) 2014-2021 Bjoern Kimminich & the OWASP Juice Shop contributors.
  * SPDX-License-Identifier: MIT
  */
 
@@ -10,7 +10,7 @@ import { SocketIoService } from '../Services/socket-io.service'
 import { AdministrationService } from '../Services/administration.service'
 import { Router } from '@angular/router'
 import { UserService } from '../Services/user.service'
-import { CookieService } from 'ngx-cookie-service'
+import { CookieService } from 'ngx-cookie'
 import { ConfigurationService } from '../Services/configuration.service'
 import { LoginGuard } from '../app.guard'
 import { roles } from '../roles'
@@ -21,31 +21,29 @@ import { roles } from '../roles'
   styleUrls: ['./sidenav.component.scss']
 })
 export class SidenavComponent implements OnInit {
-
   public applicationName = 'OWASP Juice Shop'
   public showGitHubLink = true
   public userEmail = ''
   public scoreBoardVisible: boolean = false
   public version: string = ''
-  public isExpanded = true
   public showPrivacySubmenu: boolean = false
   public showOrdersSubmenu: boolean = false
   public isShowing = false
-  public sizeOfMail: number = 0
   public offerScoreBoardTutorial: boolean = false
 
   @Output() public sidenavToggle = new EventEmitter()
 
-  constructor (private administrationService: AdministrationService, private challengeService: ChallengeService,
-    private ngZone: NgZone, private io: SocketIoService, private userService: UserService, private cookieService: CookieService,
-    private router: Router, private configurationService: ConfigurationService, private loginGuard: LoginGuard) { }
+  constructor (private readonly administrationService: AdministrationService, private readonly challengeService: ChallengeService,
+    private readonly ngZone: NgZone, private readonly io: SocketIoService, private readonly userService: UserService, private readonly cookieService: CookieService,
+    private readonly router: Router, private readonly configurationService: ConfigurationService, private readonly loginGuard: LoginGuard) { }
 
   ngOnInit () {
     this.administrationService.getApplicationVersion().subscribe((version: any) => {
       if (version) {
-        this.version = 'v' + version
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        this.version = `v${version}`
       }
-    },(err) => console.log(err))
+    }, (err) => console.log(err))
     this.getApplicationDetails()
     this.getScoreBoardStatus()
 
@@ -78,17 +76,22 @@ export class SidenavComponent implements OnInit {
   logout () {
     this.userService.saveLastLoginIp().subscribe((user: any) => { this.noop() }, (err) => console.log(err))
     localStorage.removeItem('token')
-    this.cookieService.delete('token', '/')
+    this.cookieService.remove('token')
     sessionStorage.removeItem('bid')
+    sessionStorage.removeItem('itemTotal')
     this.userService.isLoggedIn.next(false)
-    this.ngZone.run(() => this.router.navigate(['/']))
+    this.ngZone.run(async () => await this.router.navigate(['/']))
   }
 
   goToProfilePage () {
     window.location.replace(environment.hostServer + '/profile')
   }
 
-  // tslint:disable-next-line:no-empty
+  goToDataErasurePage () {
+    window.location.replace(environment.hostServer + '/dataerasure')
+  }
+
+  // eslint-disable-next-line no-empty,@typescript-eslint/no-empty-function
   noop () { }
 
   getScoreBoardStatus () {
@@ -102,7 +105,6 @@ export class SidenavComponent implements OnInit {
   getUserDetails () {
     this.userService.whoAmI().subscribe((user: any) => {
       this.userEmail = user.email
-      this.sizeOfMail = ('' + user.email).length
     }, (err) => console.log(err))
   }
 
@@ -112,13 +114,13 @@ export class SidenavComponent implements OnInit {
 
   getApplicationDetails () {
     this.configurationService.getApplicationConfiguration().subscribe((config: any) => {
-      if (config && config.application && config.application.name) {
+      if (config?.application?.name) {
         this.applicationName = config.application.name
       }
-      if (config && config.application) {
+      if (config?.application) {
         this.showGitHubLink = config.application.showGitHubLinks
       }
-      if (config && config.application.welcomeBanner.showOnFirstStart && config.hackingInstructor.isEnabled) {
+      if (config?.application.welcomeBanner.showOnFirstStart && config.hackingInstructor.isEnabled) {
         this.offerScoreBoardTutorial = config.application.welcomeBanner.showOnFirstStart && config.hackingInstructor.isEnabled
       }
     }, (err) => console.log(err))
@@ -126,11 +128,7 @@ export class SidenavComponent implements OnInit {
 
   isAccounting () {
     const payload = this.loginGuard.tokenDecode()
-    if (payload && payload.data && payload.data.role === roles.accounting) {
-      return true
-    } else {
-      return false
-    }
+    return payload?.data?.role === roles.accounting
   }
 
   startHackingInstructor () {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020 Bjoern Kimminich.
+ * Copyright (c) 2014-2021 Bjoern Kimminich & the OWASP Juice Shop contributors.
  * SPDX-License-Identifier: MIT
  */
 
@@ -8,7 +8,7 @@ import { ServerStartedNotificationComponent } from './server-started-notificatio
 import { TranslateModule, TranslateService } from '@ngx-translate/core'
 import { HttpClientTestingModule } from '@angular/common/http/testing'
 import { RouterTestingModule } from '@angular/router/testing'
-import { async, TestBed } from '@angular/core/testing'
+import { TestBed, waitForAsync } from '@angular/core/testing'
 import { AppComponent } from './app.component'
 import { NavbarComponent } from './navbar/navbar.component'
 import { SidenavComponent } from './sidenav/sidenav.component'
@@ -33,12 +33,12 @@ import { MatDialogModule } from '@angular/material/dialog'
 import { LoginGuard } from './app.guard'
 import { MatInputModule } from '@angular/material/input'
 import { MatSnackBarModule } from '@angular/material/snack-bar'
+import { CookieModule } from 'ngx-cookie'
 
 describe('AppComponent', () => {
   let app: AppComponent
 
-  beforeEach(async(() => {
-
+  beforeEach(waitForAsync(() => {
     TestBed.configureTestingModule({
       declarations: [
         AppComponent,
@@ -52,6 +52,7 @@ describe('AppComponent', () => {
         HttpClientTestingModule,
         RouterTestingModule,
         MatToolbarModule,
+        CookieModule.forRoot(),
         TranslateModule.forRoot(),
         ClipboardModule,
         MatIconModule,
@@ -71,7 +72,7 @@ describe('AppComponent', () => {
         MatListModule,
         MatDialogModule
       ],
-      providers : [ TranslateService, LoginGuard ]
+      providers: [TranslateService, LoginGuard]
     }).compileComponents()
   }))
 
@@ -81,7 +82,7 @@ describe('AppComponent', () => {
     fixture.detectChanges()
   })
 
-  it('should create the app', async(() => {
+  it('should create the app', waitForAsync(() => {
     expect(app).toBeTruthy()
   }))
 })

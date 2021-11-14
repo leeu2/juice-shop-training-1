@@ -1,19 +1,24 @@
+/*
+ * Copyright (c) 2014-2021 Bjoern Kimminich & the OWASP Juice Shop contributors.
+ * SPDX-License-Identifier: MIT
+ */
+
 import { Injectable } from '@angular/core'
 import { Backup } from '../Models/backup.model'
-import { CookieService } from 'ngx-cookie-service'
+import { CookieService } from 'ngx-cookie'
 import { saveAs } from 'file-saver'
 import { SnackBarHelperService } from './snack-bar-helper.service'
 import { MatSnackBar } from '@angular/material/snack-bar'
-import { from } from 'rxjs'
+import { forkJoin, from, of } from 'rxjs'
+import { ChallengeService } from './challenge.service'
 
 @Injectable({
   providedIn: 'root'
 })
 export class LocalBackupService {
+  private readonly VERSION = 1
 
-  private VERSION = 1
-
-  constructor (private cookieService: CookieService, private snackBarHelperService: SnackBarHelperService, private snackBar: MatSnackBar) { }
+  constructor (private readonly cookieService: CookieService, private readonly challengeService: ChallengeService, private readonly snackBarHelperService: SnackBarHelperService, private readonly snackBar: MatSnackBar) { }
 
   save (fileName: string = 'owasp_juice_shop') {
     const backup: Backup = { version: this.VERSION }
@@ -31,6 +36,8 @@ export class LocalBackupService {
     }
     backup.language = this.cookieService.get('language') ? this.cookieService.get('language') : undefined
     backup.continueCode = this.cookieService.get('continueCode') ? this.cookieService.get('continueCode') : undefined
+    backup.continueCodeFindIt = this.cookieService.get('continueCodeFindIt') ? this.cookieService.get('continueCodeFindIt') : undefined
+    backup.continueCodeFixIt = this.cookieService.get('continueCodeFixIt') ? this.cookieService.get('continueCodeFixIt') : undefined
 
     const blob = new Blob([JSON.stringify(backup)], { type: 'text/plain;charset=utf-8' })
     saveAs(blob, `${fileName}-${new Date().toISOString().split('T')[0]}.json`)
@@ -49,30 +56,36 @@ export class LocalBackupService {
         this.restoreCookie('welcomebanner_status', backup.banners?.welcomeBannerStatus)
         this.restoreCookie('cookieconsent_status', backup.banners?.cookieConsentStatus)
         this.restoreCookie('language', backup.language)
+        this.restoreCookie('continueCodeFindIt', backup.continueCodeFindIt)
+        this.restoreCookie('continueCodeFixIt', backup.continueCodeFixIt)
         this.restoreCookie('continueCode', backup.continueCode)
 
-        let snackBarRef = this.snackBar.open('Backup has been restored from ' + backupFile.name, 'Force page reload', {
-          duration: 5000
+        const snackBarRef = this.snackBar.open('Backup has been restored from ' + backupFile.name, 'Apply changes now', {
+          duration: 10000
         })
         snackBarRef.onAction().subscribe(() => {
-          location.reload()
+          const hackingProgress = backup.continueCode ? this.challengeService.restoreProgress(encodeURIComponent(backup.continueCode)) : of(true)
+          const findItProgress = backup.continueCodeFindIt ? this.challengeService.restoreProgressFindIt(encodeURIComponent(backup.continueCodeFindIt)) : of(true)
+          const fixItProgress = backup.continueCodeFixIt ? this.challengeService.restoreProgressFixIt(encodeURIComponent(backup.continueCodeFixIt)) : of(true)
+          forkJoin([hackingProgress, findItProgress, fixItProgress]).subscribe(() => {
+            location.reload()
+          }, (err) => console.log(err))
         })
-
       } else {
-        this.snackBarHelperService.open('Version ' + backup.version + ' is incompatible with expected version ' + this.VERSION, 'errorBar')
+        this.snackBarHelperService.open(`Version ${backup.version} is incompatible with expected version ${this.VERSION}`, 'errorBar')
       }
-    }).catch((err) => {
-      this.snackBarHelperService.open('Backup restore operation failed: ' + err.message, 'errorBar')
+    }).catch((err: Error) => {
+      this.snackBarHelperService.open(`Backup restore operation failed: ${err.message}`, 'errorBar')
     }))
   }
 
   private restoreCookie (cookieName: string, cookieValue: string) {
     if (cookieValue) {
-      let expires = new Date()
+      const expires = new Date()
       expires.setFullYear(expires.getFullYear() + 1)
-      this.cookieService.set(cookieName, cookieValue, expires, '/')
+      this.cookieService.put(cookieName, cookieValue, { expires })
     } else {
-      this.cookieService.delete(cookieName, '/')
+      this.cookieService.remove(cookieName)
     }
   }
 

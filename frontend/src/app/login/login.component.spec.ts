@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2020 Bjoern Kimminich.
+ * Copyright (c) 2014-2021 Bjoern Kimminich & the OWASP Juice Shop contributors.
  * SPDX-License-Identifier: MIT
  */
 
@@ -7,7 +7,7 @@ import { SearchResultComponent } from '../search-result/search-result.component'
 import { WindowRefService } from '../Services/window-ref.service'
 import { HttpClientTestingModule } from '@angular/common/http/testing'
 import { UserService } from '../Services/user.service'
-import { async, ComponentFixture, fakeAsync, TestBed, tick } from '@angular/core/testing'
+import { ComponentFixture, fakeAsync, TestBed, tick, waitForAsync } from '@angular/core/testing'
 import { LoginComponent } from './login.component'
 import { RouterTestingModule } from '@angular/router/testing'
 import { ReactiveFormsModule } from '@angular/forms'
@@ -18,7 +18,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox'
 import { MatFormFieldModule } from '@angular/material/form-field'
 import { MatCardModule } from '@angular/material/card'
 import { MatInputModule } from '@angular/material/input'
-import { CookieService } from 'ngx-cookie-service'
+import { CookieModule, CookieService } from 'ngx-cookie'
 import { Location } from '@angular/common'
 import { of, throwError } from 'rxjs'
 import { MatTableModule } from '@angular/material/table'
@@ -35,15 +35,14 @@ describe('LoginComponent', () => {
   let userService: any
   let location: Location
 
-  beforeEach(async(() => {
-
+  beforeEach(waitForAsync(() => {
     userService = jasmine.createSpyObj('UserService', ['login'])
     userService.login.and.returnValue(of({}))
     userService.isLoggedIn = jasmine.createSpyObj('userService.isLoggedIn', ['next'])
     userService.isLoggedIn.next.and.returnValue({})
 
     TestBed.configureTestingModule({
-      declarations: [ LoginComponent, SearchResultComponent ],
+      declarations: [LoginComponent, SearchResultComponent],
       imports: [
         HttpClientTestingModule,
         RouterTestingModule.withRoutes([
@@ -51,6 +50,7 @@ describe('LoginComponent', () => {
         ]
         ),
         ReactiveFormsModule,
+        CookieModule.forRoot(),
         TranslateModule.forRoot(),
         BrowserAnimationsModule,
         MatCheckboxModule,
@@ -71,7 +71,7 @@ describe('LoginComponent', () => {
         CookieService
       ]
     })
-    .compileComponents()
+      .compileComponents()
 
     location = TestBed.inject(Location)
   }))
@@ -89,14 +89,14 @@ describe('LoginComponent', () => {
     expect(component).toBeTruthy()
   })
 
-  it('should have email as compulsory' , () => {
+  it('should have email as compulsory', () => {
     component.emailControl.setValue('')
     expect(component.emailControl.valid).toBeFalsy()
     component.emailControl.setValue('Value')
     expect(component.emailControl.valid).toBe(true)
   })
 
-  it('should have password as compulsory' , () => {
+  it('should have password as compulsory', () => {
     component.passwordControl.setValue('')
     expect(component.passwordControl.valid).toBeFalsy()
     component.passwordControl.setValue('Value')
@@ -104,7 +104,7 @@ describe('LoginComponent', () => {
   })
 
   it('should have remember-me checked if email token is present as in localStorage', () => {
-    localStorage.setItem('email','a@a')
+    localStorage.setItem('email', 'a@a')
     component.ngOnInit()
     expect(component.rememberMe.value).toBe(true)
   })
@@ -114,7 +114,7 @@ describe('LoginComponent', () => {
     expect(component.rememberMe.value).toBeFalsy()
   })
 
-  it('should flag OAuth as disabled if server is running on unauthorized redirect URI' , () => {
+  it('should flag OAuth as disabled if server is running on unauthorized redirect URI', () => {
     expect(component.oauthUnavailable).toBe(true)
   })
 
